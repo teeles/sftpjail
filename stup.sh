@@ -55,11 +55,11 @@ Ubuntu_Version
 #Create the first users
 echo "Creating SFTP users"
 useradd -M -s /usr/sbin/nologin sftpwin
-echo "sftpclient:$PASS" | chpasswd
-echo "sftpclient $PASS" > "$KEY"
+echo "sftpwin:$PASS" | chpasswd
+echo "sftpwin $PASS" > "$KEY"
 useradd -M -s /usr/sbin/nologin sftpmac
-echo "sftpclient:$PASS2" | chpasswd
-echo "sftpclient $PASS2" >> "$KEY"
+echo "sftpmac:$PASS2" | chpasswd
+echo "sftpmac $PASS2" >> "$KEY"
 useradd -M -s /usr/sbin/nologin sftpowner
 echo "sftpowner:$PASS3" | chpasswd
 echo "sftpowner $PASS3" >> "$KEY"
@@ -71,7 +71,7 @@ usermod -aG sftpusers sftpowner
 echo "setting up the file structure"
 
 mkdir /var/sftp
-chown :sftpusers /var/sftp
+chown sftpowner:sftpusers /var/sftp
 chmod 775 /var/sftp
 
 mkdir /var/sftp/win
@@ -102,7 +102,7 @@ EOL
 
 # Restart SSH service to apply changes
 echo "Restarting SSH service"
-if systemctl restart sshd; then
+if systemctl restart ssh; then
     echo "SSH service restarted successfully."
 else
     echo "Failed to restart SSH service."
