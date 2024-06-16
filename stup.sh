@@ -91,10 +91,16 @@ echo "setting up SFTP config"
 cp "/etc/ssh/sshd_config" "/etc/ssh/sshd_config.bk"
 
 cat <<EOL >> /etc/ssh/sshd_config
-Match Group sftpusers
+Match User sftpwin
     X11Forwarding no
     AllowTcpForwarding no
-    ChrootDirectory %h
+    ChrootDirectory /home/sftpwin/upload
+    ForceCommand internal-sftp
+
+Match User sftpmac
+    X11Forwarding no
+    AllowTcpForwarding no
+    ChrootDirectory /home/sftpmac/upload
     ForceCommand internal-sftp
 
 EOL
