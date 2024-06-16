@@ -12,6 +12,9 @@ PASS=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
 PASS2=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
 PASS3=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
 KEY="/home/teeles/key.txt"
+CONF=/etc/ssh/sshd_config
+SEARCH="Subsystem sftp /usr/lib/openssh/sftp-server"
+NEW_LINE="Subsystem sftp internal-sftp"
 
 #### Functions ####
 
@@ -54,55 +57,46 @@ Ubuntu_Version
 #Create the first users
 echo "Creating SFTP users"
 
-useradd -m -s /usr/sbin/nologin sftpwin
+groupadd sftponly
+
+useradd -g sftponly -s /bin/false -m -d /home/sftpwin sftpwin
 echo "sftpwin:$PASS" | chpasswd
 echo "sftpwin $PASS" > "$KEY"
-
-useradd -m -s /usr/sbin/nologin sftpmac
+useradd -g sftponly -s /bin/false -m -d /home/sftpmac sftpmac
 echo "sftpmac:$PASS2" | chpasswd
 echo "sftpmac $PASS2" >> "$KEY"
 
 useradd -m sftpadmin
 echo "sftpadmin:$PASS3" | chpasswd
 echo "sftpadmin $PASS3" >> "$KEY"
+usermod -aG sudo sftpadmin
 
-#Creating SFTP User Groups
-echo "Creating SFTP Groups"
-
-groupadd sftpusers
-usermod -aG sftpusers sftpwin
-usermod -aG sftpusers sftpmac
-
-# Setup the folder structure
-echo "setting up the file structure"
-
+echo "Changing Home Driectory Permissions"
 chown root: /home/sftpwin
-mkdir /home/sftpwin/upload
-chown sftpwin:sftpusers /home/sftpwin/upload
-chmod 755 /home/sftpwin/upload
-
+chmod 755 /home/sftpwin
 chown root: /home/sftpmac
-mkdir /home/sftpmac/upload
-chown sftpmac:sftpusers /home/sftpmac/upload
-chmod 755 /home/sftpmac/upload
+chmod 755 /home/sftpmac
 
-echo "setting up SFTP config"
+echo "creating new upload folders and setting Permissions"
+mkdir /home/sftpwin/up
+chmod 755 /home/sftpwin/up
+chown sftpwin:sftponly /home/sftpwin/up
+mkdir /home/sftpmac/up
+chmod 755 /home/sftpmac/up
+chown sftpmac:sftponly /home/sftpmac/up
 
+echo "setting up sshd_config files"
 cp "/etc/ssh/sshd_config" "/etc/ssh/sshd_config.bk"
+sed -i "/^$SEARCH/ s|^|#|" $CONF
+sed -i "/$NEW_LINE/d" $CONF
+sed -i "/$SEARCH/a\$NEW_LINE" $CONF
 
 cat <<EOL >> /etc/ssh/sshd_config
-Match User sftpwin
-    X11Forwarding no
-    AllowTcpForwarding no
-    ChrootDirectory /home/sftpwin/upload
-    ForceCommand internal-sftp
-
-Match User sftpmac
-    X11Forwarding no
-    AllowTcpForwarding no
-    ChrootDirectory /home/sftpmac/upload
-    ForceCommand internal-sftp
-
+Match Group sftponly
+ChrootDirectory %h
+ForceCommand internal-sftp
+AllowTcpForwarding no
+X11Forwarding no
 EOL
 
 # Restart SSH service to apply changes
@@ -115,4 +109,3 @@ else
 fi
 
 echo "SFTP JAIL SETUP COMPLETED SUCCESSFULLY"
-
