@@ -43,8 +43,36 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-echo "##### SFTP JAIL SETUP SCRIPT ####"
-echo "Welcome to the RM SFTP JAIL Setup Script"
+echo " _______ _________ _______          _________ _______  _______           _______ ";
+echo "(  ____ )\__   __/(  ____ \|\     /|\__   __/(       )(  ___  )|\     /|(  ____ \";
+echo "| (    )|   ) (   | (    \/| )   ( |   ) (   | () () || (   ) || )   ( || (    \/";
+echo "| (____)|   | |   | |      | (___) |   | |   | || || || |   | || |   | || (__    ";
+echo "|     __)   | |   | | ____ |  ___  |   | |   | |(_)| || |   | |( (   ) )|  __)   ";
+echo "| (\ (      | |   | | \_  )| (   ) |   | |   | |   | || |   | | \ \_/ / | (      ";
+echo "| ) \ \_____) (___| (___) || )   ( |   | |   | )   ( || (___) |  \   /  | (____/\";
+echo "|/   \__/\_______/(_______)|/     \|   )_(   |/     \|(_______)   \_/   (_______/";
+echo "                                                                                 ";
+echo " _______     _______ _________ _                                                 ";
+echo "(  ____ \   (       )\__   __/( \                                                ";
+echo "| (    \/   | () () |   ) (   | (                                                ";
+echo "| (_____    | || || |   | |   | |                                                ";
+echo "(_____  )   | |(_)| |   | |   | |                                                ";
+echo "      ) |   | |   | |   | |   | |                                                ";
+echo "/\____) | _ | )   ( | _ | | _ | (____/\                                          ";
+echo "\_______)(_)|/     \|(_))_((_)(_______/                                          ";
+echo "                                                                                 ";
+echo " _______  _______              _________ _______ _________ _                     ";
+echo "(  ____ \(  ____ \|\     /|    \__    _/(  ___  )\__   __/( \                    ";
+echo "| (    \/| (    \/| )   ( |       )  (  | (   ) |   ) (   | (                    ";
+echo "| (_____ | (_____ | (___) | _____ |  |  | (___) |   | |   | |                    ";
+echo "(_____  )(_____  )|  ___  |(_____)|  |  |  ___  |   | |   | |                    ";
+echo "      ) |      ) || (   ) |       |  |  | (   ) |   | |   | |                    ";
+echo "/\____) |/\____) || )   ( |    |\_)  )  | )   ( |___) (___| (____/\              ";
+echo "\_______)\_______)|/     \|    (____/   |/     \|\_______/(_______/              ";
+echo "                                                                                 ";
+echo "                                                                                 ";
+echo "   This script will set up this server as a ShowMeTheLogs SSH Jail.              ";
+
 
 touch "$KEY"
 chown teeles:teeles "$KEY"
@@ -54,33 +82,43 @@ Ubuntu_Version
 
 #Create the first users
 echo "Creating SFTP users"
+
 useradd -M -s /usr/sbin/nologin sftpwin
 echo "sftpwin:$PASS" | chpasswd
 echo "sftpwin $PASS" > "$KEY"
+
 useradd -M -s /usr/sbin/nologin sftpmac
 echo "sftpmac:$PASS2" | chpasswd
 echo "sftpmac $PASS2" >> "$KEY"
-useradd -M -s /usr/sbin/nologin sftpowner
+
+useradd -m sftpadmin
 echo "sftpowner:$PASS3" | chpasswd
 echo "sftpowner $PASS3" >> "$KEY"
+
+#Creating SFTP User Groups
 echo "Creating SFTP Groups"
+
 groupadd sftpusers
-usermod -aG sftpusers sftpowner
+usermod -aG sftpusers sftpwin
+usermod -aG sftpusers sftpmac
+
+groupadd sftpowners
+usermod -aG sftpowners sftpadmin
 
 # Setup the folder structure
 echo "setting up the file structure"
 
-mkdir /var/sftp
-chown sftpowner:sftpusers /var/sftp
-chmod 775 /var/sftp
+mkdir /home/sftp
+chown :sftpowners /home/sftp
+chmod 770 /home/sftp
 
-mkdir /var/sftp/win
-chown sftpwin:sftpwin /var/sftp/win
-chmod 300 /var/sftp/win
+mkdir /home/sftp/win
+chown sftpwin:sftpusers /home/sftp/win
+chmod 330 /home/sftp/win
 
-mkdir /var/sftp/mac
-chown sftpmac:sftpmac /var/sftp/mac
-chmod 300 /var/sftp/mac
+mkdir /home/sftp/mac
+chown sftpmac:sftpusers /home/sftp/mac
+chmod 330 /home/sftp/mac
 
 echo "setting up SFTP config"
 
@@ -90,13 +128,13 @@ cat <<EOL >> /etc/ssh/sshd_config
 Match User sftpwin
     X11Forwarding no
     AllowTcpForwarding no
-    ChrootDirectory /var/sftp/win
+    ChrootDirectory /home/sftp/win
     ForceCommand internal-sftp
 
 Match User sftpmac
     X11Forwarding no
     AllowTcpForwarding no
-    ChrootDirectory /var/sftp/mac
+    ChrootDirectory /home/sftp/mac
     ForceCommand internal-sftp
 EOL
 
@@ -110,4 +148,3 @@ else
 fi
 
 echo "SFTP JAIL SETUP COMPLETED SUCCESSFULLY"
-
