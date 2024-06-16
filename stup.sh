@@ -84,12 +84,19 @@ chown :sftpowners /home/sftp
 chmod 770 /home/sftp
 
 mkdir /home/sftp/win
-chown sftpwin:sftpusers /home/sftp/win
-chmod 330 /home/sftp/win
+chown root:root /home/sftp/win
+chmod 755 /home/sftp/win
+mkdir /home/sftp/win/upload
+chown sftpwin:sftpusers /home/sftp/win/upload
+chmod 770 /home/sftp/win/upload
+
 
 mkdir /home/sftp/mac
-chown sftpmac:sftpusers /home/sftp/mac
-chmod 330 /home/sftp/mac
+chown root:root /home/sftp/mac
+chmod 770 /home/sftp/mac
+mkdir /home/sftp/mac/upload
+chown sftpmac:sftpusers /home/sftp/win/upload
+chmod 770 /home/sftp/mac/upload
 
 echo "setting up SFTP config"
 
@@ -119,4 +126,3 @@ else
 fi
 
 echo "SFTP JAIL SETUP COMPLETED SUCCESSFULLY"
-
