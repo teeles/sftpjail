@@ -63,8 +63,8 @@ echo "sftpmac:$PASS2" | chpasswd
 echo "sftpmac $PASS2" >> "$KEY"
 
 useradd -m sftpadmin
-echo "sftpowner:$PASS3" | chpasswd
-echo "sftpowner $PASS3" >> "$KEY"
+echo "sftpadmin:$PASS3" | chpasswd
+echo "sftpadmin $PASS3" >> "$KEY"
 
 #Creating SFTP User Groups
 echo "Creating SFTP Groups"
