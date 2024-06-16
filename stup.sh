@@ -54,11 +54,11 @@ Ubuntu_Version
 #Create the first users
 echo "Creating SFTP users"
 
-useradd -M -s /usr/sbin/nologin sftpwin
+useradd -m -s /usr/sbin/nologin sftpwin
 echo "sftpwin:$PASS" | chpasswd
 echo "sftpwin $PASS" > "$KEY"
 
-useradd -M -s /usr/sbin/nologin sftpmac
+useradd -m -s /usr/sbin/nologin sftpmac
 echo "sftpmac:$PASS2" | chpasswd
 echo "sftpmac $PASS2" >> "$KEY"
 
@@ -73,47 +73,30 @@ groupadd sftpusers
 usermod -aG sftpusers sftpwin
 usermod -aG sftpusers sftpmac
 
-groupadd sftpowners
-usermod -aG sftpowners sftpadmin
-
 # Setup the folder structure
 echo "setting up the file structure"
 
-mkdir /home/sftp
-chown :sftpowners /home/sftp
-chmod 770 /home/sftp
+chown root: /home/sftpwin
+mkdir /home/sftpwin/upload
+chown sftpwin:sftpusers /home/sftpwin/upload
+chmod 755 /home/sftpwin/upload
 
-mkdir /home/sftp/win
-chown root:root /home/sftp/win
-chmod 755 /home/sftp/win
-mkdir /home/sftp/win/upload
-chown sftpwin:sftpusers /home/sftp/win/upload
-chmod 770 /home/sftp/win/upload
-
-
-mkdir /home/sftp/mac
-chown root:root /home/sftp/mac
-chmod 770 /home/sftp/mac
-mkdir /home/sftp/mac/upload
-chown sftpmac:sftpusers /home/sftp/win/upload
-chmod 770 /home/sftp/mac/upload
+chown root: /home/sftpmac
+mkdir /home/sftpmac/upload
+chown sftpmac:sftpusers /home/sftpmac/upload
+chmod 755 /home/sftpmac/upload
 
 echo "setting up SFTP config"
 
 cp "/etc/ssh/sshd_config" "/etc/ssh/sshd_config.bk"
 
 cat <<EOL >> /etc/ssh/sshd_config
-Match User sftpwin
+Match Group sftpusers
     X11Forwarding no
     AllowTcpForwarding no
-    ChrootDirectory /home/sftp/win
+    ChrootDirectory %h
     ForceCommand internal-sftp
 
-Match User sftpmac
-    X11Forwarding no
-    AllowTcpForwarding no
-    ChrootDirectory /home/sftp/mac
-    ForceCommand internal-sftp
 EOL
 
 # Restart SSH service to apply changes
@@ -126,3 +109,4 @@ else
 fi
 
 echo "SFTP JAIL SETUP COMPLETED SUCCESSFULLY"
+
