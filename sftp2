@@ -1,0 +1,140 @@
+#!/bin/bash
+
+###############################################
+#  V0.1 - 06/03/2025
+#  Thomas Eeles. 
+#  Ubuntu SMB share with SFT Jail - Script will create an SFTP jail within an SMB share. 
+#   - Uenequ username/passwords are stored in a file called KEY
+###############################################
+
+#### Variables ####
+#Password for the new admin account
+PASS=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
+#Password for the SMB user
+PASS2=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
+#Password for the SFTP user
+PASS3=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
+KEY="/home/teeles/key.txt"
+CONF=/etc/ssh/sshd_config
+CONF2=/etc/samba/smb.conf
+SEARCH="Subsystem sftp /usr/lib/openssh/sftp-server"
+NEW_LINE="Subsystem sftp internal-sftp"
+
+#### Functions ####
+
+Ubuntu_Version() {
+    local release_version=$(lsb_release -r | awk '{print $2}')
+
+    if [[ $release_version == 24.* ]]; then
+        echo "We are running Ubuntu 24 LTS, good."
+        echo "Running update and upgrade..."
+        
+        # Update and upgrade commands with proper error handling
+        if apt update && apt upgrade -y; then
+            echo "Update and upgrade completed successfully."
+        else
+            echo "Error occurred during update and upgrade."
+            exit 1
+        fi
+    else
+        echo "This script needs to be run on Ubuntu 24 LTS, exit time."
+        exit 1
+    fi
+}
+
+
+#### THE SCRIPT ####
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Please run the script using the 'sudo' command"
+  exit 1
+fi
+
+echo "   This script will set up this server as a ShowMeTheLogs SSH Jail.                  "
+
+touch "$KEY"
+chown teeles:teeles "$KEY"
+chmod 600 "$KEY"
+
+Ubuntu_Version
+
+#Create a new admin user and add them to the SUDO group. Then copy the password to the KEY file. 
+
+useradd -m sftpadmin
+echo "sftpadmin:$PASS" | chpasswd
+echo "sftpadmin $PASS" >> "$KEY"
+usermod -aG sudo sftpadmin
+
+#Create the root SMB and JAIL location. Then change the permissions and ownership of the folder 
+
+mkdir /home/sftpadmin/jail
+chown sftpadmin:sftpadmin /home/sftpadmin/jail
+
+#Inatll open samba. 
+
+apt install samba -y
+
+#Add the new SMB share the to conf
+
+cat <<EOL >> /etc/samba/smb.conf
+[sambashare]
+    comment = Secure Samba Share
+    path = /home/sftpadmin/jail
+    valid users = sftpadmin
+    read only = no
+    browsable = yes
+    guest ok = no
+    force user = sftpadmin
+EOL
+
+#Turn SMB off and on again. 
+
+service smbd restart
+
+#Add the sftpadmin user to the SMB users group
+
+echo -e "$PASS2\n$PASS2" | smbpasswd -a -s sftpadmin
+echo "smbpass $PASS2" >> "$KEY"
+
+#Create the SFTP user
+echo "Creating SFTP users"
+
+groupadd sftponly
+
+useradd -g sftponly -s /bin/false -m -d /home/sftpadmin/jail/sftp sftpwin
+echo "sftpwin:$PASS3" | chpasswd
+echo "sftpwin $PASS3" > "$KEY"
+
+echo "Changing Home Driectory Permissions"
+chown sftpadmin: /home/sftpadmin/jail/sftp
+chmod 755 /home/sftpadmin/jail/sftp
+
+echo "creating new upload folders and setting Permissions"
+mkdir /home/sftpadmin/jail/sftp/up
+chmod 755 /home/sftpadmin/jail/sftp/up
+chown sftpwin:sftponly /home/sftpadmin/jail/sftp/up
+
+echo "setting up sshd_config files"
+cp "/etc/ssh/sshd_config" "/etc/ssh/sshd_config.bk"
+sed -i "/^$SEARCH/ s|^|#|" $CONF
+sed -i "/$NEW_LINE/d" $CONF
+sed -i "/$SEARCH/a\$NEW_LINE" $CONF
+
+cat <<EOL >> /etc/ssh/sshd_config
+Match Group sftponly
+ChrootDirectory %h
+ForceCommand internal-sftp
+AllowTcpForwarding no
+X11Forwarding no
+EOL
+
+# Restart SSH service to apply changes
+echo "Restarting SSH service"
+if systemctl restart ssh; then
+    echo "SSH service restarted successfully."
+else
+    echo "Failed to restart SSH service."
+    exit 1
+fi
+
+echo "SFTP JAIL SETUP COMPLETED SUCCESSFULLY"
