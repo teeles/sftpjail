@@ -62,7 +62,7 @@ Ubuntu_Version
 
 useradd -m sftpadmin
 echo "sftpadmin:$PASS" | chpasswd
-echo "sftpadmin $PASS" >> "$KEY"
+echo "sftpadmin $PASS" > "$KEY"
 usermod -aG sudo sftpadmin
 
 #Create the root SMB and JAIL location. Then change the permissions and ownership of the folder 
@@ -103,7 +103,7 @@ groupadd sftponly
 
 useradd -g sftponly -s /bin/false -m -d /home/sftpadmin/jail/sftp sftpwin
 echo "sftpwin:$PASS3" | chpasswd
-echo "sftpwin $PASS3" > "$KEY"
+echo "sftpwin $PASS3" >> "$KEY"
 
 echo "Changing Home Driectory Permissions"
 chown sftpadmin: /home/sftpadmin/jail/sftp
