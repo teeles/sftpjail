@@ -1,22 +1,18 @@
 #!/bin/bash
 
 ###############################################
-#  V0.1 - 06/03/2025
+#  V0.1 - 15/06/2024
 #  Thomas Eeles. 
-#  Ubuntu SMB share with SFT Jail - Script will create an SFTP jail within an SMB share. 
-#   - Uenequ username/passwords are stored in a file called KEY
+#  Ubuntu SSH Jailhouse Setup Script
+#  A script to create a secure SFTP drop server.  
 ###############################################
 
 #### Variables ####
-#Password for the new admin account
 PASS=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
-#Password for the SMB user
 PASS2=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
-#Password for the SFTP user
 PASS3=$(openssl rand -base64 15 | tr -dc 'a-zA-Z0-9' | head -c 20)
 KEY="/home/teeles/key.txt"
 CONF=/etc/ssh/sshd_config
-CONF2=/etc/samba/smb.conf
 SEARCH="Subsystem sftp /usr/lib/openssh/sftp-server"
 NEW_LINE="Subsystem sftp internal-sftp"
 
@@ -58,67 +54,53 @@ chmod 600 "$KEY"
 
 Ubuntu_Version
 
-#Create a new admin user and add them to the SUDO group. Then copy the password to the KEY file. 
-
-useradd -m sftpadmin
-echo "sftpadmin:$PASS" | chpasswd
-echo "sftpadmin $PASS" > "$KEY"
-usermod -aG sudo sftpadmin
-
-#Create the root SMB and JAIL location. Then change the permissions and ownership of the folder 
-
-mkdir /home/sftpadmin/jail
-chown sftpadmin:sftpadmin /home/sftpadmin/jail
-
-#Inatll open samba. 
-
-apt install samba -y
-
-#Add the new SMB share the to conf
-
-cat <<EOL >> /etc/samba/smb.conf
-[sambashare]
-    comment = Secure Samba Share
-    path = /home/sftpadmin/jail
-    valid users = sftpadmin
-    read only = no
-    browsable = yes
-    guest ok = no
-    force user = sftpadmin
-EOL
-
-#Turn SMB off and on again. 
-
-service smbd restart
-
-#Add the sftpadmin user to the SMB users group
-
-echo -e "$PASS2\n$PASS2" | smbpasswd -a -s sftpadmin
-echo "smbpass $PASS2" >> "$KEY"
-
-#Create the SFTP user
+#Create the first users
 echo "Creating SFTP users"
 
 groupadd sftponly
 
-useradd -g sftponly -s /bin/false -m -d /home/sftpadmin/jail/sftp sftpwin
-echo "sftpwin:$PASS3" | chpasswd
-echo "sftpwin $PASS3" >> "$KEY"
+useradd -g sftponly -s /bin/false -m -d /home/sftpwin sftpwin
+echo "sftpwin:$PASS" | chpasswd
+echo "sftpwin $PASS" > "$KEY"
+useradd -g sftponly -s /bin/false -m -d /home/sftpmac sftpmac
+echo "sftpmac:$PASS2" | chpasswd
+echo "sftpmac $PASS2" >> "$KEY"
+
+useradd -m sftpadmin
+echo "sftpadmin:$PASS3" | chpasswd
+echo "sftpadmin $PASS3" >> "$KEY"
+usermod -aG sudo sftpadmin
 
 echo "Changing Home Driectory Permissions"
-chown sftpadmin: /home/sftpadmin/jail/sftp
-chmod 755 /home/sftpadmin/jail/sftp
+chown root: /home/sftpwin
+chmod 755 /home/sftpwin
+chown root: /home/sftpmac
+chmod 755 /home/sftpmac
 
 echo "creating new upload folders and setting Permissions"
-mkdir /home/sftpadmin/jail/sftp/up
-chmod 755 /home/sftpadmin/jail/sftp/up
-chown sftpwin:sftponly /home/sftpadmin/jail/sftp/up
+mkdir /home/sftpwin/up
+chmod 755 /home/sftpwin/up
+chown sftpwin:sftponly /home/sftpwin/up
+mkdir /home/sftpmac/up
+chmod 755 /home/sftpmac/up
+chown sftpmac:sftponly /home/sftpmac/up
 
 echo "setting up sshd_config files"
 cp "/etc/ssh/sshd_config" "/etc/ssh/sshd_config.bk"
-sed -i "/^$SEARCH/ s|^|#|" $CONF
-sed -i "/$NEW_LINE/d" $CONF
-sed -i "/$SEARCH/a\$NEW_LINE" $CONF
+
+# Escape special characters in SEARCH and NEW_LINE to avoid sed issues (this all came from chatGPT )
+ESCAPED_SEARCH=$(printf '%s\n' "$SEARCH" | sed 's/[\/&]/\\&/g')
+ESCAPED_NEW_LINE=$(printf '%s\n' "$NEW_LINE" | sed 's/[\/&]/\\&/g')
+
+# Comment out the existing line
+sed -i "/^$ESCAPED_SEARCH/ s|^|#|" "$CONF"
+
+# Remove any existing duplicate NEW_LINE if present
+sed -i "/$ESCAPED_NEW_LINE/d" "$CONF"
+
+# Append the new line after SEARCH
+sed -i "/$ESCAPED_SEARCH/a $ESCAPED_NEW_LINE" "$CONF"
+
 
 cat <<EOL >> /etc/ssh/sshd_config
 Match Group sftponly
